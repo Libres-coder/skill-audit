@@ -1,0 +1,5 @@
+__pycache__/
+*.pyc
+.skill-audit-baseline.json
+skill-audit-report.md
+skill-usage-report.md

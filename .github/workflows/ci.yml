@@ -1,0 +1,23 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Run tests
+        run: python tests/test_audit.py
+      - name: Smoke test (fixture tree)
+        run: |
+          mkdir -p /tmp/fx/skills/a
+          printf -- '---\nname: a\ndescription: Use when starting any task\n---\n' > /tmp/fx/skills/a/SKILL.md
+          python scripts/audit_skills.py --skills-dir /tmp/fx/skills --plugins-dir /tmp/fx/plugins --json > /tmp/out.json
+          python -c "import json; d=json.load(open('/tmp/out.json')); assert d['schema_version']==1 and len(d['always_on'])==1; print('smoke ok')"
