@@ -3,53 +3,72 @@ name: skill-audit
 description: "Audit all installed Claude Code skills (personal + plugin) for overlapping triggers, competing always-on styles, and possible conflicting mandates, then produce a remediation plan. Use when the wrong skill fires, when the agent's style feels inconsistent (minimal vs comprehensive), after any skill/plugin install or removal, when many skills were installed and need governance, or when the user asks to audit/check the skills collection (技能审计/冲突/重叠/查重/常开/打架/风格飘忽/治理). Read-only; makes no changes."
 ---
 
-# Skill Audit(技能治理审计)
+# Skill Audit
 
-扫描全部已装技能,输出重叠触发、常开风格、风格冲突三类风险与治理建议。
-**只读 —— 本技能从不修改或禁用任何技能,治理动作由你确认后执行。**
+Scan every installed skill for three classes of risk - overlapping triggers, competing
+always-on styles, conflicting mandates - and produce a remediation plan.
+**Read-only: this skill never modifies or disables anything.** Governance actions are
+confirmed by the user first.
 
-## 何时用
+## When to use
 
-- 装了一堆技能后,AI 触发行为飘忽(该触发的不触发、风格忽简忽繁);
-- 用户说"审计技能 / 查重叠 / 技能太多会不会打架";
-- 每次增删技能/插件之后(建议养成习惯)。
+- After installing a batch of skills/plugins (recommended habit);
+- When the wrong skill fires, or the agent's style flips (minimal vs comprehensive);
+- When the user asks to audit / find overlaps / check whether skills conflict;
+- Periodically, since the collection changes over time.
 
-## 工作流
+## Workflow
 
-### 1. 跑审计
+### 1. Run the audit
 
 ```bash
 uv run --no-project python ~/.claude/skills/skill-audit/scripts/audit_skills.py
-# 无 uv 时:python ~/.claude/skills/skill-audit/scripts/audit_skills.py(纯标准库)
+# no uv? plain python works - the script is stdlib-only
 ```
 
-stdout 给 ASCII 摘要;完整报告写入 `~/.claude/skills/skill-audit-report.md`(UTF-8)。
-参数:`--threshold`(默认 0.55,越低越敏感)、`--json`(stdout 仅输出 JSON,不写报告文件)、`--output <路径>`、`--skills-dir/--plugins-dir`。
+ASCII summary goes to stderr; the full report is written to
+`~/.claude/skills/skill-audit-report.md` (UTF-8).
+Options: `--threshold` (default 0.55, lower = more sensitive), `--json` (stdout carries
+ONLY JSON, no report file), `--output <path>`, `--skills-dir`, `--plugins-dir`,
+`--fail-on always_on|clusters|conflicts` (CI gate), `--save-baseline` / `--baseline`
+(delta reporting against a saved snapshot).
 
-### 2. 读报告,按三类风险处理
+### 2. Read the report and handle three risk classes
 
-- **Overlap clusters(重叠聚类)**:同一触发域多个技能 —— 每个域只留一个,其余禁用或删除(同一插件内部的有意变体对,如 grill-me/grill-with-docs,人工判定后通常保留);
-- **Always-on(常开风格)**:数量应 ≤1。以本次审计实际列出的常开技能为准做取舍;**hook 驱动的常开(如 ponytail)description 检测不到,需人工核对各插件的 hooks 配置**;
-- **Conflict candidates(风格冲突)**:minimal 与 comprehensive 并存 —— 由用户拍板哪个风格适用于当前项目,不替用户决定。
+- **Overlap clusters**: multiple skills in one trigger domain - keep ONE per domain and
+  disable the rest (intentional variant pairs inside the same plugin, e.g.
+  grill-me/grill-with-docs, usually stay after review);
+- **Always-on skills**: should be <= 1. Decide from the actual list the audit prints.
+  Note: hook-driven always-on skills (e.g. ponytail's SessionStart hook) are invisible
+  to description analysis - check each plugin's hooks manually;
+- **Conflict candidates**: minimal and comprehensive styles coexist - the user decides
+  which style wins for this project; do not decide for them.
 
-### 2.5 使用遥测(技能/插件是否真的在被用)
+### 3. Usage telemetry (are installed pieces actually used?)
 
 ```bash
 uv run --no-project python ~/.claude/skills/skill-audit/scripts/audit_usage.py
 ```
 
-扫描全部会话转录,报告:**MCP 服务器实际调用次数/会话数/最近使用**、显式 Skill 调用、斜杠命令、**从未被调用的个人技能清单**。
-报告写入 `~/.claude/skills/skill-usage-report.md`;`--json` 机器可读。
-**诚实局限**:自动触发的技能不会产生工具事件,所以"从未调用"只是线索而非证据;MCP 统计只含会话内工具调用,不含连接本身的开销。用它与 `claude mcp list`、插件安装时间交叉判断"沉默负债"。
+Scans session transcripts and reports: MCP server call counts/sessions/last-seen,
+explicit Skill invocations, slash commands, and personal skills never invoked.
+Report: `~/.claude/skills/skill-usage-report.md`; `--json` for machines.
+**Honest limits**: auto-triggered skills emit no tool events, so "never invoked" is a
+hint, not proof; MCP counts cover tool calls, not connection cost. Cross-check with
+`claude mcp list` and install dates before declaring dead weight.
 
-### 3. 执行治理 + 复测
+### 4. Remediate and re-audit
 
-1. 禁用:`claude plugin disable <name>@<marketplace>`;个人技能删除目录(先备份);
-2. 改 description 时遵循 skill-creator 插件的触发词规范(本机已装);
-3. **治理后必复跑审计**,确认聚类/常开数量下降 —— 用证据说话。
+1. Disable: `claude plugin disable <name>@<marketplace>`; personal skills: delete the
+   directory (back it up first);
+2. For description edits, follow the skill-creator plugin's trigger-word guidance;
+3. **Re-run the audit after remediation** and confirm clusters/always-on counts drop -
+   evidence before assertions.
 
-## 硬规则
+## Hard rules
 
-- 本技能只报告,不自动执行禁用/删除 —— 治理动作必须由用户确认;
-- 相似度阈值是启发式,聚类结果必须人工复核后再动手(参考 references/methodology.md 的已知局限);
-- 报告文件会覆盖上次结果,重要结论请抄入对话或 PROGRESS。
+- Report only; never auto-disable or delete - governance actions need user confirmation;
+- Similarity thresholds are heuristics; every cluster is human-reviewed before action
+  (see references/methodology.md for limits);
+- The report file overwrites the previous one; copy key findings into the conversation
+  or PROGRESS before relying on them.
