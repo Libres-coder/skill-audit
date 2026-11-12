@@ -28,3 +28,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning: Se
 ### Testing
 - 11 tests: parser fixtures (block scalars, BOM, CJK, nested layouts, orphan), gates,
   baseline delta, transcript telemetry.
+
+## [1.1.0] - 2026-11-13
+
+### Added
+- Plugin-level usage attribution: maps MCP server calls, Skill invocations and slash
+  commands to installed plugins; reports plugins with zero usage.
+- Documented telemetry blind spots: passive LSP plugins always look unused; plugins
+  need an observation window before being judged.

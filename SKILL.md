@@ -51,10 +51,13 @@ uv run --no-project python ~/.claude/skills/skill-audit/scripts/audit_usage.py
 ```
 
 Scans session transcripts and reports: MCP server call counts/sessions/last-seen,
-explicit Skill invocations, slash commands, and personal skills never invoked.
+explicit Skill invocations, slash commands, personal skills never invoked, and
+**plugins with zero usage** (no MCP calls, no skill invocations, no commands).
 Report: `~/.claude/skills/skill-usage-report.md`; `--json` for machines.
 **Honest limits**: auto-triggered skills emit no tool events, so "never invoked" is a
-hint, not proof; MCP counts cover tool calls, not connection cost. Cross-check with
+hint, not proof; **LSP plugins are passive (they emit no tool calls) and will always
+look unused here**; MCP counts cover tool calls, not connection cost. Give newly
+installed plugins an observation window before acting. Cross-check with
 `claude mcp list` and install dates before declaring dead weight.
 
 ### 4. Remediate and re-audit

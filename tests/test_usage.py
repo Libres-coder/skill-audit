@@ -78,6 +78,25 @@ class UsageTests(unittest.TestCase):
             self.assertNotIn("used-skill", d["never_invoked_personal_skills"])
             # --json deliberately skips the report file (design: stdout is the only output)
 
+    def test_plugin_attribution(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            proj = os.path.join(tmp, "projects")
+            skills = os.path.join(tmp, "skills")
+            mk_skill(os.path.join(skills, "a", "SKILL.md"), "a", "d")
+            installed = os.path.join(tmp, "installed.json")
+            with open(installed, "w", encoding="utf-8") as f:
+                json.dump({"plugins": {"github@mp": [{}], "unused-plugin@mp": [{}]}}, f)
+            append_events(os.path.join(proj, "p", "s.jsonl"),
+                          [tool_event("mcp__plugin_github_github__get_me")])
+            out = os.path.join(tmp, "r.md")
+            p = run(["--projects-dir", proj, "--skills-dir", skills,
+                     "--installed", installed, "--output", out, "--json"])
+            self.assertEqual(p.returncode, 0, p.stderr)
+            d = json.loads(p.stdout)
+            self.assertIn("github", d["used_plugins"])
+            self.assertIn("unused-plugin", d["unused_plugins"])
+            self.assertNotIn("github", d["unused_plugins"])
+
     def test_report_markdown(self):
         with tempfile.TemporaryDirectory() as tmp:
             proj = os.path.join(tmp, "projects")

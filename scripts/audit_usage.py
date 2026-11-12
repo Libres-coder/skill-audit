@@ -30,6 +30,7 @@ HOME = os.path.expanduser("~")
 DEFAULTS = {
     "projects": os.path.join(HOME, ".claude", "projects"),
     "skills": os.path.join(HOME, ".claude", "skills"),
+    "installed": os.path.join(HOME, ".claude", "plugins", "installed_plugins.json"),
     "output": os.path.join(HOME, ".claude", "skills", "skill-usage-report.md"),
 }
 
@@ -116,6 +117,32 @@ def scan(projects_dir):
     }
 
 
+def installed_plugins(path):
+    """Plugin names from installed_plugins.json keys ("name@marketplace")."""
+    try:
+        with open(path, encoding="utf-8") as f:
+            data = json.load(f)
+        return sorted({k.split("@")[0] for k in data.get("plugins", {})})
+    except Exception:
+        return []
+
+
+def attribute_plugins(plugins, servers, skills, commands):
+    """Return (used, unused): plugins with any MCP server / skill / command usage."""
+    used = set()
+    for p in plugins:
+        mcp_prefix = "plugin_" + p + "_"
+        if any(s.startswith(mcp_prefix) or s == "plugin_" + p for s in servers):
+            used.add(p)
+            continue
+        if any(sk.split(":")[0] == p for sk in skills):
+            used.add(p)
+            continue
+        if any(cmd.split(":")[0] == p for cmd in commands):
+            used.add(p)
+    return used, [p for p in plugins if p not in used]
+
+
 def personal_skills(skills_dir):
     names = []
     for d in sorted(os.listdir(skills_dir)):
@@ -136,11 +163,15 @@ def main():
     ap.add_argument("--projects-dir", default=DEFAULTS["projects"])
     ap.add_argument("--skills-dir", default=DEFAULTS["skills"])
     ap.add_argument("--output", default=DEFAULTS["output"])
+    ap.add_argument("--installed", default=DEFAULTS["installed"])
     ap.add_argument("--json", action="store_true")
     args = ap.parse_args()
 
     data = scan(args.projects_dir)
     installed = personal_skills(args.skills_dir)
+    plugins = installed_plugins(args.installed)
+    used_plugins, unused_plugins = attribute_plugins(plugins, data["servers"],
+                                                     data["skills"], data["commands"])
 
     app_internal = {s: c for s, c in data["servers"].items() if s in APP_INTERNAL}
     real_servers = {s: c for s, c in data["servers"].items() if s not in APP_INTERNAL}
@@ -158,6 +189,8 @@ def main():
                                                data["skills"].most_common(10)) or "none"), file=err)
     print("commands: %s" % (", ".join("%s=%d" % kv for kv in
                                       data["commands"].most_common(10)) or "none"), file=err)
+    print("plugins used: %d/%d | unused: %s" % (len(used_plugins), len(plugins),
+          ", ".join(unused_plugins) or "none"), file=err)
     print("personal skills NEVER invoked (hint only): %d/%d" % (len(unused_personal), len(installed)), file=err)
     if unused_personal:
         print("  " + ", ".join(unused_personal[:20]), file=err)
@@ -175,6 +208,9 @@ def main():
             "skill_invocations": dict(data["skills"]),
             "commands": dict(data["commands"]),
             "personal_skills": installed,
+            "installed_plugins": plugins,
+            "used_plugins": sorted(used_plugins),
+            "unused_plugins": unused_plugins,
             "never_invoked_personal_skills": unused_personal,
         }, ensure_ascii=False))
         return 0
@@ -210,6 +246,13 @@ def main():
             lines.append("- /%s: %d (last %s)" % (k, v, data["last_seen"].get(("cmd", k), "-")))
     else:
         lines.append("(none)")
+    lines.append("")
+    lines.append("## Plugins used vs unused (%d/%d)" % (len(used_plugins), len(plugins)))
+    lines.append("Used: %s" % (", ".join(sorted(used_plugins)) or "(none)"))
+    lines.append("")
+    lines.append("Unused (zero MCP calls, zero skill invocations, zero commands):")
+    for p in unused_plugins:
+        lines.append("- %s" % p)
     lines.append("")
     lines.append("## Personal skills never invoked (%d/%d)" % (len(unused_personal), len(installed)))
     lines.append("Hint only: auto-triggered skills do not emit tool events. Cross-check with actual behavior.")

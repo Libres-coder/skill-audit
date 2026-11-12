@@ -50,7 +50,7 @@ Options: `--threshold` (0.55 default; similarity cutoff), `--output <path>`,
 | Always-on styles | action-oriented markers: "always apply", "starting any", "every task", "use when starting any", "auto-start", ... |
 | Conflict candidates | cluster members mixing minimal words (smallest/yagni/lazy) with maximal words (comprehensive/thorough) |
 | Drift since baseline | added/removed skills, new overlap clusters, always-on count change |
-| Usage telemetry | MCP tool calls per server, explicit Skill invocations, slash commands, never-invoked personal skills |
+| Usage telemetry | MCP tool calls per server, explicit Skill invocations, slash commands, never-invoked personal skills, plugins with zero usage (LSP plugins excepted - they are passive) |
 
 All heuristics and their known limits are documented in
 `references/methodology.md` — read it before acting on a report. Clusters are

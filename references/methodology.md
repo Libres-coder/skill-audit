@@ -40,6 +40,13 @@
 7. **Usage telemetry covers explicit invocations only**: auto-triggered skills emit no
    tool events, and MCP counts exclude connection overhead. Treat "never invoked" as a
    hint and cross-check before disabling anything.
+8. **LSP plugins are structurally invisible to telemetry**: they are passive language
+   servers (no tool calls, no commands), so they will always appear as "unused plugins".
+   Exclude them by name before acting on the unused list.
+9. **Observation window matters**: plugins installed within the transcript window's
+   recent days have had no fair chance to be used. Compare the unused list with install
+   dates; only plugins unused after a reasonable window (2+ weeks of active sessions)
+   are candidates for disabling.
 
 ## Remediation patterns
 
