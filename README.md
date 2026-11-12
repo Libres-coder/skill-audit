@@ -31,11 +31,16 @@ python ~/.claude/skills/skill-audit/scripts/audit_skills.py --json
 
 python ~/.claude/skills/skill-audit/scripts/audit_skills.py --fail-on always_on,clusters
 # exit 1 when any listed condition is detected - CI gate
+
+python ~/.claude/skills/skill-audit/scripts/audit_usage.py
+# usage telemetry: scans ~/.claude/projects/**/*.jsonl and reports which MCP
+# servers / skills / commands are actually used, and which personal skills were
+# never invoked (hint only - auto-triggered skills emit no tool events)
 ```
 
 Options: `--threshold` (0.55 default; similarity cutoff), `--output <path>`,
-`--skills-dir`, `--plugins-dir`, `--skip-network` (n/a, kept for symmetry),
-`--fail-on always_on|clusters|conflicts`.
+`--skills-dir`, `--plugins-dir`, `--fail-on always_on|clusters|conflicts`,
+`--save-baseline` / `--baseline <path>` (delta reporting vs a saved snapshot).
 
 ## What it detects
 
@@ -44,6 +49,8 @@ Options: `--threshold` (0.55 default; similarity cutoff), `--output <path>`,
 | Overlap clusters | normalized description similarity (SequenceMatcher >= 0.55) AND >= 3 shared tokens (CJK split per character); union-find by (source, name) |
 | Always-on styles | action-oriented markers: "always apply", "starting any", "every task", "use when starting any", "auto-start", ... |
 | Conflict candidates | cluster members mixing minimal words (smallest/yagni/lazy) with maximal words (comprehensive/thorough) |
+| Drift since baseline | added/removed skills, new overlap clusters, always-on count change |
+| Usage telemetry | MCP tool calls per server, explicit Skill invocations, slash commands, never-invoked personal skills |
 
 All heuristics and their known limits are documented in
 `references/methodology.md` — read it before acting on a report. Clusters are
@@ -52,7 +59,8 @@ candidates for human review, not verdicts.
 ## Testing
 
 ```bash
-python tests/test_audit.py   # 8 tests, fixture skill trees, no network
+python tests/test_audit.py   # 9 tests - parser, clustering, gates, baseline
+python tests/test_usage.py   # 2 tests - transcript telemetry
 ```
 
 ## Field record
